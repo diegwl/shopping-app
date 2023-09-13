@@ -1,13 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, SafeAreaView, Pressable, View, TextInput, KeyboardAvoidingView } from 'react-native';
+import { StyleSheet, Text, SafeAreaView, Pressable, View, TextInput, KeyboardAvoidingView, FlatList, ActivityIndicator } from 'react-native';
 import ShoppingItem from './components/ShoppingItem';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
-import { app, db, getFirestore, collection, addDoc } from './firebase';
+import { app, db, getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from './firebase';
 
 export default function App() {
 
   const [title, setTitle] = useState("");
+  const [shoppingList, setShoppingList] = useState([]);
 
   const addShoppingItem = async() => {
     try {
@@ -22,19 +23,53 @@ export default function App() {
     }
   }
 
+  const getShoppingList = async() => {
+    let items = []
+    const querySnapshot = await getDocs(collection(db, "shopping"));
+    querySnapshot.forEach((doc) => {
+      items.push({
+        ...doc.data(),
+        id: doc.id,
+      });
+    });
+    setShoppingList(items)
+  }
+
+  async function deleteAll() {
+    const querySnapshot = await getDocs(collection(db, "shopping"));
+
+    querySnapshot.docs.map((item) => {
+      deleteDoc(doc(db, "shopping", item.id))
+    });
+    getShoppingList();
+  }
+
+  useEffect(() => {
+    getShoppingList();
+  }, [addShoppingItem]);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.heading}>Shopping List</Text>
-        <Text style={styles.nOfItems}>0</Text>
-        <Pressable>
+        <Text style={styles.nOfItems}>{shoppingList.length}</Text>
+        <Pressable onPress={deleteAll}>
             <MaterialIcons name="delete" size={30} color="black" />
         </Pressable>
       </View>
 
-      <ShoppingItem />
+{
+      shoppingList.length > 0 ? (
+      <FlatList
+        data={shoppingList}
+        renderItem={({item}) => <ShoppingItem id={item.id} title={item.title} isChecked={item.isChecked} getShoppingList={getShoppingList}/>}
+        key={item => item.id}
+      /> ) : (
+      <AntDesign name='shoppingcart' size={200} color="black" style={{alignSelf: 'center', marginTop: '30%'}}/>
+      )
+    }
 
-      <KeyboardAvoidingView style={styles.containerInput} behavior='padding'>
+      <View style={styles.containerInput}>
         <TextInput 
             placeholder='Enter shopping item'
             style={styles.input}
@@ -45,7 +80,7 @@ export default function App() {
           <Pressable style={styles.send} onPress={addShoppingItem}>
             <MaterialIcons name="send" size={40} color="black" />
           </Pressable>
-      </KeyboardAvoidingView>
+      </View>
       <StatusBar hidden={true} />
     </SafeAreaView>
   );
@@ -54,7 +89,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#c3c3c3',
+    backgroundColor: '#e7e7e7',
     paddingVertical: 10,
   },
   header: {
